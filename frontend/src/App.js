@@ -853,7 +853,7 @@ const ProtectedRoute = ({ children }) => {
   
   useEffect(() => {
     if (!loading && !token) {
-      navigate("/login");
+      navigate("/login", { replace: true });
     }
   }, [token, loading, navigate]);
   
@@ -865,7 +865,11 @@ const ProtectedRoute = ({ children }) => {
     );
   }
   
-  return token ? children : null;
+  if (!token && !loading) {
+    return null;
+  }
+  
+  return children;
 };
 
 // Main App Component
