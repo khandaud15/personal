@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
-import { BrowserRouter as Router, Routes, Route, Link, useNavigate } from "react-router-dom";
-import axios from "axios";
 import "./App.css";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import axios from "axios";
 
 // API Configuration
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
