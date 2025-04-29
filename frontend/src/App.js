@@ -1180,12 +1180,617 @@ const Transactions = () => {
   );
 };
 
-// Cashback Page (Placeholder - will be implemented in the next phase)
+// Cashback Page
 const Cashback = () => {
+  const { user, getApiClient } = useAuth();
+  const [bankAccounts, setBankAccounts] = useState([]);
+  const [upiDetails, setUpiDetails] = useState([]);
+  const [redemptions, setRedemptions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  
+  // Form states
+  const [showBankForm, setShowBankForm] = useState(false);
+  const [showUpiForm, setShowUpiForm] = useState(false);
+  const [showRedemptionForm, setShowRedemptionForm] = useState(false);
+  
+  // Bank account form
+  const [bankName, setBankName] = useState("");
+  const [accountHolder, setAccountHolder] = useState("");
+  const [accountNumber, setAccountNumber] = useState("");
+  const [ifscCode, setIfscCode] = useState("");
+  
+  // UPI form
+  const [upiId, setUpiId] = useState("");
+  
+  // Redemption form
+  const [redemptionAmount, setRedemptionAmount] = useState("");
+  const [redemptionMethod, setRedemptionMethod] = useState("bank_transfer");
+  const [selectedBankAccountId, setSelectedBankAccountId] = useState("");
+  const [selectedUpiId, setSelectedUpiId] = useState("");
+  
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const client = getApiClient();
+        
+        // Fetch bank accounts
+        const bankResponse = await client.get('/bank-accounts');
+        setBankAccounts(bankResponse.data);
+        
+        if (bankResponse.data.length > 0) {
+          const defaultBank = bankResponse.data.find(bank => bank.is_default) || bankResponse.data[0];
+          setSelectedBankAccountId(defaultBank.id);
+        }
+        
+        // Fetch UPI details
+        const upiResponse = await client.get('/upi');
+        setUpiDetails(upiResponse.data);
+        
+        if (upiResponse.data.length > 0) {
+          const defaultUpi = upiResponse.data.find(upi => upi.is_default) || upiResponse.data[0];
+          setSelectedUpiId(defaultUpi.upi_id);
+        }
+        
+        // Fetch redemption history
+        const redemptionResponse = await client.get('/redemptions');
+        setRedemptions(redemptionResponse.data);
+        
+      } catch (err) {
+        console.error("Error fetching data:", err);
+        setError("Failed to load cashback data. Please try again later.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchData();
+  }, [getApiClient]);
+  
+  // Helper function to format date
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric"
+    });
+  };
+  
+  // Helper function to get status badge style
+  const getStatusBadge = (status) => {
+    switch (status) {
+      case "pending":
+        return "bg-yellow-100 text-yellow-800";
+      case "processing":
+        return "bg-blue-100 text-blue-800";
+      case "completed":
+        return "bg-green-100 text-green-800";
+      case "failed":
+        return "bg-red-100 text-red-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
+  
+  // Form submission handlers
+  const handleAddBankAccount = async (e) => {
+    e.preventDefault();
+    
+    try {
+      const client = getApiClient();
+      
+      await client.post('/bank-accounts', {
+        bank_name: bankName,
+        account_holder: accountHolder,
+        account_number: accountNumber,
+        ifsc_code: ifscCode,
+        is_default: true
+      });
+      
+      // Refresh bank accounts
+      const response = await client.get('/bank-accounts');
+      setBankAccounts(response.data);
+      
+      // Reset form
+      setBankName("");
+      setAccountHolder("");
+      setAccountNumber("");
+      setIfscCode("");
+      setShowBankForm(false);
+      
+    } catch (err) {
+      console.error("Error adding bank account:", err);
+      alert("Failed to add bank account. Please try again.");
+    }
+  };
+  
+  const handleAddUpi = async (e) => {
+    e.preventDefault();
+    
+    try {
+      const client = getApiClient();
+      
+      await client.post('/upi', {
+        upi_id: upiId,
+        is_default: true
+      });
+      
+      // Refresh UPI details
+      const response = await client.get('/upi');
+      setUpiDetails(response.data);
+      
+      // Reset form
+      setUpiId("");
+      setShowUpiForm(false);
+      
+    } catch (err) {
+      console.error("Error adding UPI:", err);
+      alert("Failed to add UPI. Please try again.");
+    }
+  };
+  
+  const handleRedemptionRequest = async (e) => {
+    e.preventDefault();
+    
+    if (parseFloat(redemptionAmount) <= 0) {
+      alert("Please enter a valid amount");
+      return;
+    }
+    
+    if (parseFloat(redemptionAmount) > user.cashback_balance) {
+      alert("Redemption amount cannot exceed your cashback balance");
+      return;
+    }
+    
+    try {
+      const client = getApiClient();
+      
+      const requestData = {
+        amount: parseFloat(redemptionAmount),
+        method: redemptionMethod
+      };
+      
+      if (redemptionMethod === "bank_transfer") {
+        requestData.bank_account_id = selectedBankAccountId;
+      } else if (redemptionMethod === "upi") {
+        requestData.upi_id = selectedUpiId;
+      }
+      
+      await client.post('/redemptions', requestData);
+      
+      // Refresh redemptions
+      const redemptionsResponse = await client.get('/redemptions');
+      setRedemptions(redemptionsResponse.data);
+      
+      // Refresh user data to update balance
+      window.location.reload();
+      
+    } catch (err) {
+      console.error("Error submitting redemption request:", err);
+      alert("Failed to submit redemption request. Please try again.");
+    }
+  };
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex justify-center items-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+  
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex justify-center items-center">
+        <div className="bg-white p-8 rounded-lg shadow-md max-w-md text-center">
+          <svg className="w-16 h-16 text-red-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+          <h2 className="text-2xl font-bold mb-4">Error</h2>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <Link 
+            to="/"
+            className="bg-blue-600 text-white py-2 px-6 rounded-md hover:bg-blue-700"
+          >
+            Go to Home
+          </Link>
+        </div>
+      </div>
+    );
+  }
+  
   return (
-    <div>
-      <h1>My Cashback</h1>
-      <p>This page will be implemented in the next development phase.</p>
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="container mx-auto px-4">
+        <h1 className="text-3xl font-bold mb-6">My Cashback</h1>
+        
+        {/* Cashback Balance Card */}
+        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+          <div className="flex flex-col md:flex-row justify-between items-center">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-500">Available Balance</h2>
+              <div className="text-4xl font-bold text-blue-600 mt-2">
+                ₹{user.cashback_balance.toFixed(2)}
+              </div>
+            </div>
+            
+            <button
+              onClick={() => setShowRedemptionForm(true)}
+              disabled={user.cashback_balance <= 0}
+              className={`mt-4 md:mt-0 px-6 py-3 rounded-md text-white ${
+                user.cashback_balance > 0 
+                  ? "bg-blue-600 hover:bg-blue-700" 
+                  : "bg-gray-400 cursor-not-allowed"
+              }`}
+            >
+              Redeem Cashback
+            </button>
+          </div>
+        </div>
+        
+        {/* Redemption Form */}
+        {showRedemptionForm && (
+          <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-bold">Redeem Cashback</h2>
+              <button 
+                onClick={() => setShowRedemptionForm(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+              </button>
+            </div>
+            
+            <form onSubmit={handleRedemptionRequest}>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Redemption Amount
+                </label>
+                <div className="mt-1 relative rounded-md shadow-sm">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <span className="text-gray-500">₹</span>
+                  </div>
+                  <input
+                    type="number"
+                    min="100"
+                    max={user.cashback_balance}
+                    step="0.01"
+                    required
+                    value={redemptionAmount}
+                    onChange={(e) => setRedemptionAmount(e.target.value)}
+                    className="focus:ring-blue-500 focus:border-blue-500 block w-full pl-7 pr-12 py-2 border-gray-300 rounded-md"
+                    placeholder="0.00"
+                  />
+                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                    <span className="text-gray-500">INR</span>
+                  </div>
+                </div>
+                <p className="mt-1 text-xs text-gray-500">
+                  Minimum ₹100. Maximum ₹{user.cashback_balance.toFixed(2)}
+                </p>
+              </div>
+              
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Redemption Method
+                </label>
+                <select
+                  value={redemptionMethod}
+                  onChange={(e) => setRedemptionMethod(e.target.value)}
+                  className="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="bank_transfer">Bank Transfer</option>
+                  <option value="upi">UPI</option>
+                </select>
+              </div>
+              
+              {redemptionMethod === "bank_transfer" && (
+                <div className="mb-4">
+                  {bankAccounts.length > 0 ? (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Select Bank Account
+                      </label>
+                      <select
+                        value={selectedBankAccountId}
+                        onChange={(e) => setSelectedBankAccountId(e.target.value)}
+                        className="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        {bankAccounts.map(account => (
+                          <option key={account.id} value={account.id}>
+                            {account.bank_name} - {account.account_number.slice(-4).padStart(account.account_number.length, '*')}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  ) : (
+                    <div className="text-center py-4">
+                      <p className="text-gray-600 mb-2">No bank accounts added yet</p>
+                      <button
+                        type="button"
+                        onClick={() => setShowBankForm(true)}
+                        className="text-blue-600 hover:text-blue-800"
+                      >
+                        + Add Bank Account
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              {redemptionMethod === "upi" && (
+                <div className="mb-4">
+                  {upiDetails.length > 0 ? (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Select UPI ID
+                      </label>
+                      <select
+                        value={selectedUpiId}
+                        onChange={(e) => setSelectedUpiId(e.target.value)}
+                        className="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        {upiDetails.map(upi => (
+                          <option key={upi.id} value={upi.upi_id}>
+                            {upi.upi_id}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  ) : (
+                    <div className="text-center py-4">
+                      <p className="text-gray-600 mb-2">No UPI IDs added yet</p>
+                      <button
+                        type="button"
+                        onClick={() => setShowUpiForm(true)}
+                        className="text-blue-600 hover:text-blue-800"
+                      >
+                        + Add UPI ID
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              <div className="mt-6">
+                <button
+                  type="submit"
+                  disabled={
+                    (redemptionMethod === "bank_transfer" && bankAccounts.length === 0) ||
+                    (redemptionMethod === "upi" && upiDetails.length === 0) ||
+                    !redemptionAmount ||
+                    parseFloat(redemptionAmount) <= 0 ||
+                    parseFloat(redemptionAmount) > user.cashback_balance
+                  }
+                  className="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Submit Redemption Request
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+        
+        {/* Payment Methods Section */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+          {/* Bank Accounts */}
+          <div className="bg-white rounded-lg shadow-md overflow-hidden">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold">Bank Accounts</h2>
+                <button
+                  onClick={() => setShowBankForm(!showBankForm)}
+                  className="text-blue-600 hover:text-blue-800"
+                >
+                  {showBankForm ? "Cancel" : "+ Add"}
+                </button>
+              </div>
+              
+              {showBankForm && (
+                <form onSubmit={handleAddBankAccount} className="mb-6 border-b pb-6">
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Bank Name
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={bankName}
+                      onChange={(e) => setBankName(e.target.value)}
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                  
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Account Holder Name
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={accountHolder}
+                      onChange={(e) => setAccountHolder(e.target.value)}
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                  
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Account Number
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={accountNumber}
+                      onChange={(e) => setAccountNumber(e.target.value)}
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                  
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      IFSC Code
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={ifscCode}
+                      onChange={(e) => setIfscCode(e.target.value)}
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                  
+                  <button
+                    type="submit"
+                    className="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  >
+                    Add Bank Account
+                  </button>
+                </form>
+              )}
+              
+              {bankAccounts.length === 0 ? (
+                <div className="text-center py-6 text-gray-500">
+                  No bank accounts added yet
+                </div>
+              ) : (
+                <ul className="divide-y divide-gray-200">
+                  {bankAccounts.map(account => (
+                    <li key={account.id} className="py-4">
+                      <div className="flex justify-between">
+                        <div>
+                          <p className="font-medium">{account.bank_name}</p>
+                          <p className="text-sm text-gray-500">
+                            {account.account_holder}
+                          </p>
+                          <p className="text-sm text-gray-500">
+                            {account.account_number.slice(-4).padStart(account.account_number.length, '*')}
+                          </p>
+                        </div>
+                        {account.is_default && (
+                          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                            Default
+                          </span>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+          
+          {/* UPI Details */}
+          <div className="bg-white rounded-lg shadow-md overflow-hidden">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold">UPI IDs</h2>
+                <button
+                  onClick={() => setShowUpiForm(!showUpiForm)}
+                  className="text-blue-600 hover:text-blue-800"
+                >
+                  {showUpiForm ? "Cancel" : "+ Add"}
+                </button>
+              </div>
+              
+              {showUpiForm && (
+                <form onSubmit={handleAddUpi} className="mb-6 border-b pb-6">
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      UPI ID
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={upiId}
+                      onChange={(e) => setUpiId(e.target.value)}
+                      placeholder="example@upi"
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                  
+                  <button
+                    type="submit"
+                    className="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  >
+                    Add UPI ID
+                  </button>
+                </form>
+              )}
+              
+              {upiDetails.length === 0 ? (
+                <div className="text-center py-6 text-gray-500">
+                  No UPI IDs added yet
+                </div>
+              ) : (
+                <ul className="divide-y divide-gray-200">
+                  {upiDetails.map(upi => (
+                    <li key={upi.id} className="py-4">
+                      <div className="flex justify-between">
+                        <p className="font-medium">{upi.upi_id}</p>
+                        {upi.is_default && (
+                          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                            Default
+                          </span>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>
+        
+        {/* Redemption History */}
+        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+          <div className="p-6">
+            <h2 className="text-xl font-bold mb-6">Redemption History</h2>
+            
+            {redemptions.length === 0 ? (
+              <div className="text-center py-6 text-gray-500">
+                No redemption history yet
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Method</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {redemptions.map(redemption => (
+                      <tr key={redemption.id}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {formatDate(redemption.created_at)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          ₹{redemption.amount.toFixed(2)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {redemption.method === "bank_transfer" ? "Bank Transfer" : "UPI"}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadge(redemption.status)}`}>
+                            {redemption.status.charAt(0).toUpperCase() + redemption.status.slice(1)}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
