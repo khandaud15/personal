@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
-import "./App.css";
-import { BrowserRouter, Routes, Route, Link, useNavigate } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Link, useNavigate } from "react-router-dom";
 import axios from "axios";
+import { createContext, useContext } from "react";
+import "./App.css";
 
 // API Configuration
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -14,9 +15,6 @@ const createAuthenticatedClient = (token) => {
     headers: token ? { Authorization: `Bearer ${token}` } : {}
   });
 };
-
-// Context for Authentication
-import { createContext, useContext } from "react";
 const AuthContext = createContext(null);
 
 const AuthProvider = ({ children }) => {
