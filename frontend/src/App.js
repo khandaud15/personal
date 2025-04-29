@@ -997,12 +997,185 @@ const ProductDetail = () => {
   );
 };
 
-// Transactions Page (Placeholder - will be implemented in the next phase)
+// Transactions Page
 const Transactions = () => {
+  const { getApiClient } = useAuth();
+  const [transactions, setTransactions] = useState([]);
+  const [products, setProducts] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  
+  useEffect(() => {
+    const fetchTransactions = async () => {
+      try {
+        const client = getApiClient();
+        
+        // Get user's transactions
+        const response = await client.get('/transactions');
+        setTransactions(response.data);
+        
+        // Fetch product details for each transaction
+        const productIds = [...new Set(response.data.map(t => t.product_id))];
+        const productData = {};
+        
+        for (const productId of productIds) {
+          try {
+            const productResponse = await axios.get(`${API}/products/${productId}`);
+            productData[productId] = productResponse.data;
+          } catch (err) {
+            console.error(`Error fetching product ${productId}:`, err);
+          }
+        }
+        
+        setProducts(productData);
+      } catch (err) {
+        console.error("Error fetching transactions:", err);
+        setError("Failed to load transactions. Please try again later.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchTransactions();
+  }, [getApiClient]);
+  
+  // Helper function to format date
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric"
+    });
+  };
+  
+  // Helper function to get status badge style
+  const getStatusBadge = (status) => {
+    switch (status) {
+      case "pending":
+        return "bg-yellow-100 text-yellow-800";
+      case "verified":
+        return "bg-green-100 text-green-800";
+      case "rejected":
+        return "bg-red-100 text-red-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex justify-center items-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+  
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex justify-center items-center">
+        <div className="bg-white p-8 rounded-lg shadow-md max-w-md text-center">
+          <svg className="w-16 h-16 text-red-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+          <h2 className="text-2xl font-bold mb-4">Error</h2>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <Link 
+            to="/"
+            className="bg-blue-600 text-white py-2 px-6 rounded-md hover:bg-blue-700"
+          >
+            Go to Home
+          </Link>
+        </div>
+      </div>
+    );
+  }
+  
   return (
-    <div>
-      <h1>My Transactions</h1>
-      <p>This page will be implemented in the next development phase.</p>
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="container mx-auto px-4">
+        <h1 className="text-3xl font-bold mb-6">My Transactions</h1>
+        
+        {transactions.length === 0 ? (
+          <div className="bg-white rounded-lg shadow-md p-8 text-center">
+            <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+            </svg>
+            <h2 className="text-2xl font-bold mb-4">No Transactions Found</h2>
+            <p className="text-gray-600 mb-6">You haven't made any purchases yet. Browse our products to earn cashback.</p>
+            <Link 
+              to="/products" 
+              className="bg-blue-600 text-white py-2 px-6 rounded-md hover:bg-blue-700"
+            >
+              Browse Products
+            </Link>
+          </div>
+        ) : (
+          <div className="bg-white rounded-lg shadow-md overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cashback</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Verification</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {transactions.map(transaction => (
+                    <tr key={transaction.id}>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          {products[transaction.product_id] ? (
+                            <>
+                              <div className="flex-shrink-0 h-10 w-10">
+                                <img 
+                                  className="h-10 w-10 object-contain" 
+                                  src={products[transaction.product_id].image_url} 
+                                  alt={products[transaction.product_id].title}
+                                />
+                              </div>
+                              <div className="ml-4">
+                                <div className="text-sm font-medium text-gray-900">
+                                  {products[transaction.product_id].title}
+                                </div>
+                              </div>
+                            </>
+                          ) : (
+                            <div className="text-sm text-gray-500">Product details unavailable</div>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {formatDate(transaction.created_at)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        ₹{transaction.amount.toFixed(2)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        ₹{transaction.cashback_amount.toFixed(2)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadge(transaction.status)}`}>
+                          {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {transaction.verification_method === "webhook" && "Automatic"}
+                        {transaction.verification_method === "manual" && "Manual Admin"}
+                        {transaction.verification_method === "self_reported" && "Self-reported"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
