@@ -32,7 +32,11 @@ const AuthProvider = ({ children }) => {
       formData.append("username", email);
       formData.append("password", password);
       
+      console.log("Attempting login with:", email);
+      console.log("Login endpoint:", `${API}/auth/token`);
+      
       const response = await axios.post(`${API}/auth/token`, formData);
+      console.log("Login response:", response.data);
       
       const { access_token, user } = response.data;
       
@@ -44,6 +48,7 @@ const AuthProvider = ({ children }) => {
       
       return { success: true };
     } catch (err) {
+      console.error("Login error:", err);
       setError(err.response?.data?.detail || "Login failed");
       return { success: false, error: err.response?.data?.detail || "Login failed" };
     } finally {
