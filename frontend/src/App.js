@@ -816,12 +816,183 @@ const Products = () => {
   );
 };
 
-// Product Detail Page (Placeholder - will be implemented in the next phase)
+// Product Detail Page
 const ProductDetail = () => {
+  const { id } = useParams();
+  const [product, setProduct] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const { user, getApiClient } = useAuth();
+  const navigate = useNavigate();
+  
+  useEffect(() => {
+    const fetchProduct = async () => {
+      try {
+        const response = await axios.get(`${API}/products/${id}`);
+        setProduct(response.data);
+      } catch (err) {
+        console.error("Error fetching product:", err);
+        setError("Failed to load product details. Please try again later.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchProduct();
+  }, [id]);
+  
+  const handleShopNow = () => {
+    // In a real implementation, we would:
+    // 1. Create a transaction record
+    // 2. Redirect to Amazon with our affiliate link
+    
+    if (!user) {
+      navigate("/login");
+      return;
+    }
+    
+    // For demo purposes, we'll create a transaction and then open Amazon
+    const createTransaction = async () => {
+      try {
+        const client = getApiClient();
+        
+        // Create transaction record
+        await client.post('/transactions', {
+          product_id: product.id,
+          amount: product.price,
+          verification_method: "SELF_REPORTED"
+        });
+        
+        // Open Amazon product page in new tab
+        window.open(product.amazon_url, '_blank');
+      } catch (err) {
+        console.error("Error creating transaction:", err);
+        alert("Failed to process your request. Please try again.");
+      }
+    };
+    
+    createTransaction();
+  };
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex justify-center items-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+  
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex justify-center items-center">
+        <div className="bg-white p-8 rounded-lg shadow-md max-w-md text-center">
+          <svg className="w-16 h-16 text-red-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+          <h2 className="text-2xl font-bold mb-4">Error</h2>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <button 
+            onClick={() => navigate(-1)} 
+            className="bg-blue-600 text-white py-2 px-6 rounded-md hover:bg-blue-700"
+          >
+            Go Back
+          </button>
+        </div>
+      </div>
+    );
+  }
+  
+  if (!product) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex justify-center items-center">
+        <div className="bg-white p-8 rounded-lg shadow-md max-w-md text-center">
+          <h2 className="text-2xl font-bold mb-4">Product Not Found</h2>
+          <p className="text-gray-600 mb-6">The product you're looking for doesn't exist or has been removed.</p>
+          <Link 
+            to="/products" 
+            className="bg-blue-600 text-white py-2 px-6 rounded-md hover:bg-blue-700"
+          >
+            Browse Products
+          </Link>
+        </div>
+      </div>
+    );
+  }
+  
   return (
-    <div>
-      <h1>Product Detail Page</h1>
-      <p>This page will be implemented in the next development phase.</p>
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="container mx-auto px-4 max-w-6xl">
+        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+          <div className="md:flex">
+            <div className="md:w-1/2 p-6 flex justify-center items-center">
+              <img 
+                src={product.image_url} 
+                alt={product.title}
+                className="max-w-full h-auto object-contain"
+                style={{ maxHeight: "400px" }}
+              />
+            </div>
+            <div className="md:w-1/2 p-6">
+              <div className="mb-2">
+                <span className="inline-block bg-blue-100 text-blue-800 text-sm px-2 py-1 rounded">
+                  {product.category}
+                </span>
+              </div>
+              <h1 className="text-2xl md:text-3xl font-bold mb-4">{product.title}</h1>
+              <p className="text-gray-600 mb-6">{product.description}</p>
+              
+              <div className="mb-6">
+                <div className="flex items-center mb-2">
+                  <span className="text-2xl font-bold">₹{product.price.toFixed(2)}</span>
+                  <span className="ml-3 bg-green-100 text-green-800 px-3 py-1 rounded text-sm">
+                    {product.cashback_percent}% Cashback
+                  </span>
+                </div>
+                <p className="text-gray-600">
+                  Potential Cashback: ₹{((product.price * product.cashback_percent) / 100).toFixed(2)}
+                </p>
+              </div>
+              
+              <div className="space-y-4">
+                <button
+                  onClick={handleShopNow}
+                  className="w-full bg-blue-600 text-white py-3 rounded-md hover:bg-blue-700 flex justify-center items-center"
+                >
+                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path>
+                  </svg>
+                  Shop on Amazon & Earn Cashback
+                </button>
+                
+                {!user && (
+                  <p className="text-sm text-gray-600 text-center">
+                    <Link to="/login" className="text-blue-600 hover:underline">Log in</Link> or <Link to="/register" className="text-blue-600 hover:underline">create an account</Link> to track your cashback
+                  </p>
+                )}
+              </div>
+              
+              <div className="mt-8 border-t pt-6">
+                <h3 className="font-semibold mb-2">How Cashback Works:</h3>
+                <ol className="list-decimal list-inside text-gray-600 space-y-2">
+                  <li>Click "Shop on Amazon & Earn Cashback" above</li>
+                  <li>Complete your purchase on Amazon</li>
+                  <li>Cashback will be verified and added to your CashX account</li>
+                  <li>Redeem your cashback via bank transfer or UPI</li>
+                </ol>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div className="mt-6">
+          <Link to="/products" className="text-blue-600 hover:underline flex items-center">
+            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+            </svg>
+            Back to Products
+          </Link>
+        </div>
+      </div>
     </div>
   );
 };
