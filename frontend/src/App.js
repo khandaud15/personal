@@ -61,14 +61,29 @@ const AuthProvider = ({ children }) => {
     setError(null);
     
     try {
+      console.log("Attempting registration with:", email);
+      console.log("Registration endpoint:", `${API}/auth/register`);
+      
       const response = await axios.post(`${API}/auth/register`, {
         name,
         email,
         password
       });
       
-      return { success: true, user: response.data };
+      console.log("Registration successful:", response.data);
+      
+      // Automatically log in the user after successful registration
+      const loginResult = await login(email, password);
+      
+      if (loginResult.success) {
+        console.log("Auto-login after registration successful");
+        return { success: true, user: response.data };
+      } else {
+        console.error("Auto-login after registration failed:", loginResult.error);
+        return { success: true, user: response.data, autoLoginFailed: true };
+      }
     } catch (err) {
+      console.error("Registration error:", err);
       setError(err.response?.data?.detail || "Registration failed");
       return { success: false, error: err.response?.data?.detail || "Registration failed" };
     } finally {
