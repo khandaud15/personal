@@ -563,6 +563,7 @@ const Register = () => {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [formError, setFormError] = useState("");
+  const [registrationSuccess, setRegistrationSuccess] = useState(false);
   
   const { register, loading, error } = useAuth();
   const navigate = useNavigate();
@@ -582,10 +583,21 @@ const Register = () => {
     }
     
     setFormError("");
+    console.log("Submitting registration form...");
     
     const result = await register(name, email, password);
+    console.log("Registration result:", result);
+    
     if (result.success) {
-      navigate("/login");
+      setRegistrationSuccess(true);
+      
+      // If auto-login was successful, redirect to products page
+      // Otherwise, redirect to login page
+      if (!result.autoLoginFailed) {
+        setTimeout(() => navigate("/products"), 1500);
+      } else {
+        setTimeout(() => navigate("/login"), 1500);
+      }
     }
   };
   
