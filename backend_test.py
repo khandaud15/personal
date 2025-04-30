@@ -263,6 +263,26 @@ def main():
                 if transaction_success:
                     tester.test_get_transactions()
     
+    # Test bank account creation and redemption
+    bank_success, bank_response = tester.test_create_bank_account()
+    if bank_success:
+        print(f"Created bank account: {bank_response.get('id')}")
+        
+        # Test getting bank accounts
+        accounts_success, accounts_response = tester.test_get_bank_accounts()
+        if accounts_success and accounts_response and len(accounts_response) > 0:
+            bank_account_id = accounts_response[0]['id']
+            
+            # Test creating a redemption request
+            redemption_success, redemption_response = tester.test_create_redemption_request(
+                bank_account_id, 
+                amount=50.0  # Small amount for testing
+            )
+            
+            # Test getting redemption requests
+            if redemption_success:
+                tester.test_get_redemption_requests()
+    
     # Print results
     print(f"\n📊 Tests passed: {tester.tests_passed}/{tester.tests_run}")
     return 0 if tester.tests_passed == tester.tests_run else 1
