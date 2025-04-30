@@ -358,7 +358,7 @@ const Home = () => {
                       </span>
                     </div>
                     <Link 
-                      to={user ? `/products/${product.id}` : "/login?redirect=products"}
+                      to={user ? `/products/${product.id}` : `/login?redirect=${encodeURIComponent(`/products/${product.id}`)}`}
                       className="block w-full text-center bg-blue-600 text-white py-2 rounded-md mt-4 hover:bg-blue-700"
                     >
                       View Product
