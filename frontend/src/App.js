@@ -1884,14 +1884,23 @@ const Cashback = () => {
 const ProtectedRoute = ({ children }) => {
   const { token, loading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [checkingAuth, setCheckingAuth] = useState(true);
   
   useEffect(() => {
-    if (!loading && !token) {
-      navigate("/login", { replace: true });
+    // Only perform the check once the loading state is settled
+    if (!loading) {
+      if (!token) {
+        console.log("No authentication token found. Redirecting to login...");
+        // Redirect to login with return path
+        const currentPath = location.pathname;
+        navigate(`/login?redirect=${encodeURIComponent(currentPath)}`, { replace: true });
+      }
+      setCheckingAuth(false);
     }
-  }, [token, loading, navigate]);
+  }, [token, loading, navigate, location]);
   
-  if (loading) {
+  if (loading || checkingAuth) {
     return (
       <div className="min-h-screen flex justify-center items-center">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
@@ -1899,10 +1908,12 @@ const ProtectedRoute = ({ children }) => {
     );
   }
   
-  if (!token && !loading) {
+  // If there's no token and we're not loading, don't render the children
+  if (!token) {
     return null;
   }
   
+  // If there is a token, render the children
   return children;
 };
 
