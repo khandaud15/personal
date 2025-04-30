@@ -454,14 +454,29 @@ const Home = () => {
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [loginSuccess, setLoginSuccess] = useState(false);
   const { login, loading, error } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  
+  // Check if there's a redirect param in the URL
+  const searchParams = new URLSearchParams(location.search);
+  const redirectTo = searchParams.get("redirect") || "/products";
   
   const handleSubmit = async (e) => {
     e.preventDefault();
+    console.log("Attempting login...");
+    
     const result = await login(email, password);
+    console.log("Login result:", result);
+    
     if (result.success) {
-      navigate("/");
+      setLoginSuccess(true);
+      
+      // Redirect to the target page after a short delay
+      setTimeout(() => {
+        navigate(redirectTo);
+      }, 1000);
     }
   };
   
