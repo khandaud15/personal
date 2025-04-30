@@ -156,6 +156,56 @@ class CashXAPITester:
             "transactions",
             200
         )
+        
+    def test_create_bank_account(self):
+        """Test creating a bank account"""
+        data = {
+            "account_holder": "Test User",
+            "account_number": f"ACC{uuid.uuid4().hex[:8]}",
+            "ifsc_code": "TEST0001",
+            "bank_name": "Test Bank",
+            "is_default": True
+        }
+        return self.run_test(
+            "Create Bank Account",
+            "POST",
+            "bank-accounts",
+            200,
+            data=data
+        )
+        
+    def test_get_bank_accounts(self):
+        """Test getting user bank accounts"""
+        return self.run_test(
+            "Get Bank Accounts",
+            "GET",
+            "bank-accounts",
+            200
+        )
+        
+    def test_create_redemption_request(self, bank_account_id, amount=100.0):
+        """Test creating a redemption request"""
+        data = {
+            "amount": amount,
+            "method": "bank_transfer",
+            "bank_account_id": bank_account_id
+        }
+        return self.run_test(
+            "Create Redemption Request",
+            "POST",
+            "redemptions",
+            200,
+            data=data
+        )
+        
+    def test_get_redemption_requests(self):
+        """Test getting user redemption requests"""
+        return self.run_test(
+            "Get Redemption Requests",
+            "GET",
+            "redemptions",
+            200
+        )
 
 def main():
     # Setup
