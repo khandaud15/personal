@@ -370,7 +370,10 @@ const Home = () => {
           )}
           
           <div className="text-center mt-8">
-            <Link to="/products" className="inline-block bg-blue-600 text-white py-2 px-6 rounded-md hover:bg-blue-700">
+            <Link 
+              to={user ? "/products" : "/login?redirect=/products"}
+              className="inline-block bg-blue-600 text-white py-2 px-6 rounded-md hover:bg-blue-700"
+            >
               View All Products
             </Link>
           </div>
